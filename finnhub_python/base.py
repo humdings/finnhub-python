@@ -3,8 +3,10 @@ import signal
 import logging
 import time
 import os
+import pandas as pd
 
 from finnhub_python.decorators import ohlcv_frame, economic_data_frame
+from finnhub_python.utils import get_formatted_dates
 
 # Globals
 LOG_LEVEL = int(os.environ.get('LOG_LEVEL', logging.WARNING))
@@ -43,11 +45,29 @@ class FinnHubBase(object):
         self.log.debug("Initializing FinnHub API with API-Key {}.".format(api_key))
         self.API_KEY = api_key
 
-    def get_stock_company_profile(self, symbol):
+    def get_stock_company_profile(self, symbol=None, isin=None, cusip=None):
         """Get general information of a company."""
-
-        params = {'symbol': symbol}
+        params = {'symbol': symbol, 'isin': isin, 'cusip': cusip}
         return self.call_api('/stock/profile', params)
+
+    def get_stock_company_profile2(self, symbol=None, isin=None, cusip=None):
+        """Free version of company profile."""
+        params = {'symbol': symbol, 'isin': isin, 'cusip': cusip}
+        return self.call_api('/stock/profile2', params=params)
+
+    def get_stock_filings(self, symbol, cik=None, access_number=None, form=None,
+                          start_date=None, end_date=None, lookback_days=None):
+        if (start_date is not None) or (lookback_days is not None):
+            start, end = get_formatted_dates(
+                start_date=start_date,
+                end_date=end_date,
+                lookback_days=lookback_days)
+        else:
+            start, end = start_date, end_date
+
+        params = {'symbol': symbol, 'cik': cik, 'accessNumber': access_number,
+                  'form': form, 'from': start, 'to': end}
+        return self.call_api('/stock/filings', params=params)
 
     def get_stock_ceo_compensation(self, symbol):
         """Get latest company's CEO compensation.
@@ -81,11 +101,36 @@ class FinnHubBase(object):
         params = {'symbol': symbol}
         return self.call_api('/stock/peers', params)
 
+    def get_basic_financials(self, symbol, metric='all'):
+        """Free version of company profile."""
+        params = {'symbol': symbol, 'metric': metric}
+        return self.call_api('/stock/metric', params=params)
+
+    def get_stock_financials_as_reported(self, symbol, cik=None, access_number=None, freq=None):
+        """
+        symbol (optional): Stock Symbol
+        cik (optional): CIK.
+        access_number (optional): Access number of a specific report you want to retrieve financials from.
+        freq (optional): Frequency. Can be either annual or quarterly. Default to annual.
+        :return dict: reported financials.
+        """
+        params = {'symbol': symbol, 'cik': cik, 'accessNumber': access_number, 'freq': freq}
+        return self.call_api('/stock/financials-reported', params=params)
+
     def get_stock_earnings(self, symbol):
         """Get company quarterly earnings."""
 
         params = {'symbol': symbol}
         return self.call_api('/stock/earnings', params)
+
+    def get_stock_splits(self, symbol, start_date=None, end_date=None, lookback_days=None):
+        start, end = get_formatted_dates(
+            start_date=start_date,
+            end_date=end_date,
+            lookback_days=lookback_days
+        )
+        params = {'symbol': symbol, 'from': start, 'to': end}
+        return self.call_api('/stock/split', params=params)
 
     @ohlcv_frame
     def get_stock_candles(self, symbol, resolution="D", count=200, format="json"):
@@ -191,11 +236,16 @@ class FinnHubBase(object):
         params = {'category': category, 'minId': min_id}
         return self.call_api('/news', params)
 
-    def get_company_news(self, symbol):
-        """List latest company news by symbol.
-        This endpoint is only available for US companies."""
-
-        return self.call_api('/news/{}'.format(symbol))
+    def get_company_news(self, symbol, start_date=None, end_date=None, lookback_days=7):
+        if end_date is None:
+            end_date = pd.Timestamp.utcnow()
+        if start_date is None:
+            start_date = pd.Timestamp(end_date) - pd.Timedelta(days=lookback_days)
+        # Ensure proper date string parameters
+        start_date = pd.Timestamp(start_date).strftime('%Y-%m-%d')
+        end_date = pd.Timestamp(end_date).strftime('%Y-%m-%d')
+        params = {'symbol': symbol, 'from': start_date, 'to': end_date}
+        return self.call_api('/company-news', params=params)
 
     def get_news_sentiment(self, symbol):
         """Get company's news sentiment and statistics."""
@@ -265,7 +315,9 @@ class FinnHubBase(object):
             self.log.info("Sleeping for {} seconds until next call.".format(seconds_until_reset))
             time.sleep(seconds_until_reset + 2)
 
-    def call_api(self, resource, params={}):
+    def call_api(self, resource, params=None):
+        if params is None:
+            params = {}
         if _stop == True:
             exit(0)
 

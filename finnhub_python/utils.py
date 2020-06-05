@@ -1,5 +1,5 @@
 import os
-
+import pandas as pd
 import multitasking
 
 multitasking.set_max_threads(multitasking.config["CPU_CORES"] * 5)
@@ -45,3 +45,22 @@ def get_finnhub_api_key(env=None):
     if env is None:
         env = os.environ
     return env.get('FINNHUB_API_KEY', None)
+
+
+def get_formatted_dates(start_date=None, end_date=None, lookback_days=7):
+    '''
+    Returns start and end dates for queries with dates in the proper format
+    Default dates are one week ago until today.
+
+    '''
+
+    if end_date is None:
+        end_date = pd.Timestamp.utcnow().strftime('%Y-%m-%d')
+    if start_date is None:
+        start_date = (
+                pd.Timestamp(end_date) - pd.Timedelta(days=lookback_days)
+        ).strftime('%Y-%m-%d')
+    # Ensure proper date string parameters
+    start_date = pd.Timestamp(start_date).strftime('%Y-%m-%d')
+    end_date = pd.Timestamp(end_date).strftime('%Y-%m-%d')
+    return start_date, end_date
