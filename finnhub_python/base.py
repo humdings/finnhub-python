@@ -195,6 +195,10 @@ class FinnHubBase(object):
         params = {'exchange': exchange}
         return self.call_api('/forex/symbol', params)
 
+    def get_all_forex_rates(self, base='USD'):
+        params = {'base': base}
+        return self.call_api('/forex/rates', params=params)
+
     @ohlcv_frame
     def get_forex_candles(self, symbol, resolution="D", count=200, format="json"):
         """Get candlestick data for forex."""
@@ -294,6 +298,9 @@ class FinnHubBase(object):
         """Get recent and coming ICO."""
 
         return self.call_api('/calendar/ico')
+
+    def get_covid19_data(self):
+        return self.call_api('/covid19/us')
 
     def remember_headers(self, headers):
         self.LAST_HEADERS = headers

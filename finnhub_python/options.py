@@ -1,54 +1,38 @@
 import pandas as pd
-import json
+
+from finnhub_python.utils import RequestCache
 
 
-class FinnHubOptionChain(object):
+class FinnHubOptionChain(RequestCache):
     """
     Wrapper class for option chain data returned
     by FinnHubs api.
     """
 
     def __init__(self, data):
-        self._data = data
+        super(FinnHubOptionChain, self).__init__(data)
         self.chain = data['data']
         self.expirations = [i['expirationDate'] for i in self.chain]
         self._frame = None
-        # Inject the original download time if it's not loaded from a file
-        if '_download_date' not in data:
-            data['_download_date'] = str(pd.Timestamp.utcnow())
 
     def __repr__(self):
-        return '<{} OptionChain: {}>'.format(self.underlying_symbol, self.download_date)
-
-    @property
-    def download_date(self):
-        return self._data['_download_date']
+        return '<{} OptionChain: {}>'.format(self.underlying_symbol, str(self.download_date))
 
     @property
     def underlying_symbol(self):
-        return self._data['code']
+        return self.data['code']
 
     @property
     def underlying_price(self):
-        return self._data['lastTradePrice']
+        return self.data['lastTradePrice']
 
     @property
     def underlying_last_trade_date(self):
-        return self._data['lastTradeDate']
+        return self.data['lastTradeDate']
 
     @property
     def exchange(self):
-        return self._data['exchange']
-
-    @classmethod
-    def from_json(cls, filepath):
-        with open(filepath, 'r') as f:
-            data = json.load(f)
-        return cls(data)
-
-    def to_json(self, filepath):
-        with open(filepath, 'w') as f:
-            json.dump(self._data, f)
+        return self.data['exchange']
 
     def to_frame(self):
         if self._frame is None:
